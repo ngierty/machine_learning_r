@@ -1,0 +1,410 @@
+---
+title: "HW1"
+subtitle: "Due: 1/25/2018"
+author: "Naomi Giertych"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, fig.align = "center", fig.height = 4, fig.width = 4)
+```
+
+```{r setup2, include = FALSE}
+
+##########################################
+# Set working directory and load libraries
+##########################################
+
+setwd("~/Documents/UMich/Classes/2018 Spring/STATS 503/Homework/HW1/")
+library(mixtools)
+library(ggplot2)
+library(plotly)
+library(matrixcalc)
+library(scatterplot3d)
+library(reshape2)
+library(knitr)
+
+```
+
+# Question 3
+
+## Part a
+
+I fit a 2-dimensional Gaussian on the male data contained in the height and weight dataset. Below is a scatterplot of the male data with a 99%, a 95%, and a 90% confidence level ellipse of the 2-dim Guassian superimposed. The 95% confidence level does well in fitting the data; only missing a few of the points. It is interesting to note that individuals 63 and 101 (index is from the original dataset) are outliers in the entire male dataset with near average heights and way above average weights. These two individuals have heights of 73 and 74 inches, respectively, and both weigh 280 lbs.
+
+```{r q3_parta}
+
+##########################################
+# Get the data that we're interested in
+##########################################
+
+# Read in txt file
+height_weight <- read.table("heightWeightData.txt", col.names = c("gender", "height", "weight"))
+
+##########################################
+# Question 3, Part a
+# Fit a 2-dim Gaussian to the male data
+# Plot male data with the ellipse
+##########################################
+
+# Extract only height and weight of males
+male_hw <- subset(height_weight[, 2:3], height_weight$gender == 1)
+
+# Figure out the mean vector and the covariance matrix
+mu <- apply(male_hw, 2, mean)
+sigma <- cov(male_hw)
+
+# Learn how to use ggplot and plot the height and weight with male ellipse
+male_hw_ell_plot = ggplot(male_hw, aes(x = height, y = weight))
+male_hw_ell_plot + ggtitle("Height versus Weight") +
+  geom_text(aes(label=rownames(male_hw))) +
+    stat_ellipse(data = male_hw, type = "norm", level = 0.90) +
+    stat_ellipse(data = male_hw, type = "norm", level = 0.95) +
+    stat_ellipse(data = male_hw, type = "norm", level = 0.99)
+
+male_hw[c("63", "101"),]
+
+```
+
+## Part b
+
+I standardize the male only height and weight data by centering each by their means and then divided by their standard deviations. Below is a scatterplot of the standardized male data with a 99%, a 95%, and a 90% confidence level ellipse of the 2-dim Guassian (of the standardized data) superimposed. It looks pretty much the same as the non-standardizd graph except now it is centered at zero. It is easier to determine relative distance of individuals after centering and standardizing the data; however the units no longer make sense. Note that it is much easier to confirm that individuals 63 and 101 have average heights but above average weights. 
+
+```{r q3_partb}
+                                          
+##########################################
+# Question 3, Part b
+# Standardize and repeat part a
+##########################################
+
+# standardize the data
+x_jbar <- apply(male_hw, 2, mean)
+sd_j <- apply(male_hw, 2, sd)
+male_hw_stand = male_hw
+male_hw_stand$height <- (male_hw_stand$height - x_jbar[1])/sd_j[1]
+male_hw_stand$weight <- (male_hw_stand$weight - x_jbar[2])/sd_j[2]
+
+# Figure out the mean vector and the covariance matrix
+mu_stand <- apply(male_hw_stand, 2, mean)
+sigma_stand <- cov(male_hw_stand)
+
+# Learn how to use ggplot and plot the height and weight with male ellipse
+male_hw_stand_ell_plot = ggplot(male_hw_stand, aes(x = height, y = weight))
+male_hw_stand_ell_plot + ggtitle("Height versus Weight Standardized") +
+  geom_text(aes(label=rownames(male_hw_stand))) +
+  stat_ellipse(data = male_hw_stand, type = "norm", level = 0.90) +
+  stat_ellipse(data = male_hw_stand, type = "norm", level = 0.95) +
+  stat_ellipse(data = male_hw_stand, type = "norm", level = 0.99)
+
+```
+
+## Part c
+
+Finally, I whiten the data by multiplying the male data by the inverse, square root of the eigenvalues and the transpose of the eigenvectors. The ellipses are circles and the data points have moved around the graph. Unlike the original data, the units of the whitened data no longer make sense, but similar to the standardized data we can interpret individuals relative to the group or other individuals. For instance, our two outliers from parts a and b have moved to above average "height" and slightly above average "weight". Therefore, compared to their counterparts, they are much taller, but they are only slightly overweight for their height.
+
+```{r q3_partc}
+
+##########################################
+# Question 3, part c
+# Whitening/sphereing the data
+##########################################
+
+# Compute the eigenvector and eigenvalues of the covariance matrix
+eigenvalues = eigen(cov(male_hw))$values
+eigenvectors = eigen(cov(male_hw))$vectors
+
+# Whitening the data
+white_trans <- solve(diag(eigenvalues,2))^(1/2) %*% t(eigenvectors) %*% t(male_hw)
+white <- as.data.frame(t(white_trans))
+colnames(white) = c("height", "weight")
+summary(white)
+
+# Plot whitened male data with ellipse
+male_white = ggplot(white, aes(x= height, y=weight))
+male_white + ggtitle("Height versus Weight Whitened") +
+  geom_text(aes(label=rownames(white))) +
+  stat_ellipse(data = white, type = "norm", level = .90) +
+  stat_ellipse(data = white, type = "norm", level = .95) +
+  stat_ellipse(data = white, type = "norm", level = .99)
+
+```
+
+# Question 4
+
+## Part a
+
+Plotting the fa-data in a couple of 3-D graphs reveals that the data seems to lie in a 2 dimensional space of some linear combination of the all of the variables.
+
+```{r q4_parta}
+
+##########################################
+# Question 4
+##########################################
+
+# Load in the data
+fa_data <- read.table("fa_data.txt")
+
+# Part a) Create some visualizations of the data
+with(fa_data, scatterplot3d(V1, V2, V3, pch = 19, angle=280))
+with(fa_data, scatterplot3d(V4, V5, V6, pch = 19, angle=20))
+
+```
+
+## Part b
+
+To identify the principal components and projections of the data, I standardize the data and then determine the eigenvalues and eigenvectors of the covariance matrix of all the data. Below is a list of the corresponding eigenvalues and then the eigenvectors. The eigenvectors tell me which linear combinations of the variables are orthoganal to each other.
+
+```{r q4_partb}
+
+# Part b) 
+# Standardize the data
+fa_stand = scale(fa_data)
+
+# Find the PCA components
+# find the eigenvalues and eigenvectors of the covariance matrix
+eigenvalues = as.matrix(diag(eigen(cov(fa_stand))$values, nrow = 7))
+eigenvalues # First two eigenvalues are really big; scaler of the direction
+eigenvectors = eigen(cov(fa_stand))$vectors # tells you the direction
+eigenvectors
+```
+
+The two eigenvectors explain approximately 98% of the variation in the data (based on the ratio of the first two eigenvalues to the sum of all the eigenvalues.)
+
+```{r eigen_prop}
+# Proportion of the first two PCs
+(eigenvalues[1,1] + eigenvalues[2,2]) / matrix.trace(eigenvalues)
+```
+
+Below is a graph of the data using two principal components. The data is now reduced to 2 dimensions.
+
+```{r q4_PC}
+
+# Reducing fa-data to 2 dimensions
+
+# Keep the eigenvectors that we want; i.e. the first two PCs
+eigenvec_keep <- eigenvectors[, 1:2]
+
+# Get the new dataset by multiplying the transpose of the PCs and the transpose of the data
+fa_data_rd <- fa_data_rd_test <- data.frame(as.matrix(fa_data) %*% eigenvec_keep)
+plot(fa_data_rd$X1, fa_data_rd$X2, xlab = "PC1", ylab = "PC2",
+     main = "Principal Components of \nfa_data in 2D")
+```
+
+# Question 5
+
+I read in the vehical MPG dataset and cleaned it. To clean the dataset, I removed "?" marks in the "horsepower", and I converted "cylinders", "model year", and "origin" to be factors.
+
+```{r q5_setup}
+
+##########################################
+# Question 5
+##########################################
+
+# Read in data and clean
+cars <- read.table("auto-mpg.data", col.names = c("mpg", "cylinders", "displacement", "horsepower", "weight", "acceleration", "model year", "origin", "car name"))
+
+# contains "?"
+cars$horsepower <- as.numeric(as.character(cars$horsepower))
+
+# Converting to factors
+cars$cylinders <- as.factor(cars$cylinders)
+cars$model.year <- as.factor(cars$model.year)
+cars$origin <- as.factor(cars$origin)
+
+```
+
+As can be seen by the summary table in part a, all the cars were made during the 70s and early 80s. Examining the data set, we can see that most cars were made in the U.S. (origin 1), followed by Europe (origin 2), and then Japan (origin 3).
+
+## Part a
+
+As can be seen by the summary statistics below, the magnitutde of units of the variables differs quite a bit. Miles per gallon and acceleration ($m/s^2$ from 0 to 60 mph) is always less than 50, horsepower is between 46 and 230, displacement (total volume of all the cyclinders in the engine) is between 68 and 455 cubic centimeters. However, weight is in the 1,000's of pounds. There appears to be some potential outliers based on the maximums of the numeric variables. I examine this further below.
+
+```{r q5_a1}
+
+# Create exploratory graphs and summaries
+summary(cars)
+
+```
+
+The histogram of the MPG suggests that there are no outliers within the entire dataset. However, if we control for the number of cylinders in the engine, there are quite a few outliers, but again, only one oultier if we control for the model year.
+
+```{r q5_a2}
+
+hist(cars$mpg, xlab = "MPG", main = "Histogram of MPG")
+
+boxplot(mpg~cylinders,data=cars, main="Car Mileage by \nNumber of Cylinders",
+        xlab="Number of Cylinders", ylab="MPG")
+
+boxplot(mpg~model.year,data=cars, main="Car Mileage by Model Year",
+        xlab="Model Year", ylab="MPG")
+
+```
+
+It is also interesting to graph MPG, weight, acceleration by horsepower. We note the (quadratic) decrease in MPG and acceleration as horsepower increases, but the positive relationship between weight and horsepower (possibly due to increases in engine size). There also appears to be an outlier with moderate horsepower but fairly high MPG (the Japanese Datsun), an outlier with high horsepower and moderate weight (the American Buick Estate Wagon), and an outlier with high horsepower and moderate to high acceleration (the American HI 1200d).
+
+```{r q5_a3}
+
+horse_mpg = ggplot(cars, aes(x= horsepower, y=mpg)) 
+horse_mpg + ggtitle("Horsepower versus MPG") +
+  geom_text(aes(label=rownames(cars)))
+cars[334,]
+
+horse_weight = ggplot(cars, aes(x= horsepower, y=weight)) 
+horse_weight + ggtitle("Horsepower versus Weight") +
+  geom_text(aes(label=rownames(cars)))
+cars[14,]
+
+horse_acc = ggplot(cars, aes(x= horsepower, y=acceleration)) 
+horse_acc + ggtitle("Horsepower versus \nAcceleration") +
+  geom_text(aes(label=rownames(cars)))
+cars[29,]
+
+```
+
+## Part b and c
+
+The variables I include for PCA analysis are MPG, displacement, horsepower, weight and acceleration. Before performing PCA, I re-center each of the variables to 0 (by subtracting the mean). I then perform PCA using covariates and then correlation.
+
+Below is a summary of the covariate PCA results. Based on these results, I would choose only one principal component since the first principal component explains 99.76% of the variance in the data.
+
+```{r q5_b1}
+
+# Center the data for PCA
+# The variables of interest are: MPG, displacement, horsepower, weight, and acceleration
+pca_el_cars <- cars[,c(1, 3:6)]
+
+pca_el_cars_cent <- as.matrix(scale(na.omit(pca_el_cars), scale = F)) # matrix so we can do PCA #standardizing is recommended
+
+# Perform PCA using covariates
+pca_cov_results <- princomp(pca_el_cars_cent, cor = F)
+summary(pca_cov_results)
+
+```
+
+Below is a summary of the correlation PCA results. Based on these results, I would choose two principal components since the first and second principal components explain 92.77% of the variance in the data.
+
+```{r q5_b2}
+# Perform PCA using correlation
+# Pick correlation because the variables are not on similar scales
+pca_cor_results <- princomp(pca_el_cars_cent, cor = T)
+summary(pca_cor_results)
+
+```
+
+Of the correlation and covariate methods, I choose the correlation method to proceed because the correlation method accounts for the fact that some of the variables (particularly weight) are on a different scale compared to the other variables.
+
+The scree plot below confirms that I should use two principal components from the correlation PCA.
+
+```{r q5_c}
+
+# Scree plot; plots the sqrt of the eigenvalues or just the eigenvalues in decreasing order--look for gaps
+barplot(pca_cor_results$sdev^2, ylim = c(0, 4), ylab = "Eigenvalues", 
+        main = "Scree Plot from \nPCA using Correlation")
+
+```
+
+## Part d
+
+The factors are the linear combinations of the original variables that capture the dimensions of the data (analogous to eigenvectors). The variable loadings tell me the weights of each variable that was used to construct each factor; they are the correlation between the original variables and the factors.
+
+Examining the factor loadings for the correlation PCA reveals that the weights are approximately evenly distributed amongst MPG, displacement, horsepower, weight, and acceleration in the first component. There is slightly more weight attributed to displacement and horsepower in the first component. A potential interpretation is that MPG, displacement, horsepower, weight, and acceleration equally determine car performance or car preferences. The second component has significantly more weight on acceleration and slightly more weight on MPG and weight. A potential interpretation is that if the MPG, displacement, horsepower, and weights of two cars are similar, then the defining factor between them is acceleration.
+
+```{r q5_d}
+
+loadings(pca_cor_results)
+
+```
+
+## Part e
+
+I projected the data onto the first two principal components and plotted it with a color distinction based on the number of cyclinders, model year and origin.
+
+The number of cylinders in the engine appears to impact car performance heavily. As can be seen in the graph below, cars with a high number of cylinders tend to have low performance in all categories whereas cars with fewer cylinders tend to have moderate to high performance in all categories but have at least moderate to high performance in acceleration. Interestingly there is one car with high performance in all the categories but moderate performance in acceleration. (Manually filtering the data reveals this to be the Oldsmobile Cutlass Ciera.) 
+
+```{r q5_e_cyl}
+
+# Variable loadings; correlation coefficients of the variables and the factors
+cars_eigenvec <- loadings(pca_cor_results)[, 1:2]
+
+# Plot of the variables in 2D
+cars_pc <- as.matrix(pca_el_cars) %*% cars_eigenvec
+cars_pc <- data.frame(cars_pc)
+colnames(cars_pc) <- c("X1", "X2")
+cars_pc <- cbind(cars_pc, cars[, c("cylinders", "model.year", "origin", "car.name")])
+
+# Include colors by different categorical variables to determine maximum separation
+ggplot(cars_pc) + ggtitle("Cars by Number of Cylinders \nPrincipal Components") +
+  geom_point(aes(x=X1, y=X2, col = cylinders))
+
+```
+
+As would be expected, there's an increase in general performance as model year increases, which can be seen in the graph below.
+
+```{r q5_e_my}
+
+ggplot(cars_pc) + ggtitle("Cars by Model Year \nPrincipal Components") +
+  geom_point(aes(x=X1, y=X2, col = model.year))
+
+```
+
+Finally, it is interesting to note the differences in performance based on origin. American cars tend to be all over the spectrum whereas European and Japanese cars consistently perform better in acceleration.
+
+```{r q5_e_o}
+
+ggplot(cars_pc) + ggtitle("Cars by Number of Origin \nPrincipal Components") +
+  geom_point(aes(x=X1, y=X2, col = origin))
+
+```
+
+## Part f
+
+Below I've used bootstrap to estimate the 95% confidence interval for the percent of variance explained by the first two principal components. I've also graphed the histograms of the bootstrapped eigenvalues. The confidence interval for the PCs are fairly tight indicating that the two principals components that were choosen are good estimates of the data.
+
+```{r q5_f}
+
+# bootstrap the confidence interval for the percent of variance explained by the first two PC's
+
+#create the bootstrap sample
+bootstrap_cars_i <- lapply(1:1000, function(i) {sample(1:nrow(pca_el_cars_cent), replace = T)}) #create a list of a 1000 samples from pca_el_cars_cent
+
+# calculate eigenvalues of the bootstrap samples
+eigen_bootstrap_cars <- sapply(bootstrap_cars_i, function(j) {princomp(pca_el_cars_cent[j,], cor = T)$sdev^2}) 
+
+bootstrap_summary_cars <- apply(eigen_bootstrap_cars, 1, function(result) {c(quantile(result, probs = c(0.025, 0.975)))})
+bootstrap_summary_cars[, 1:2]
+
+bootstrap_plot_results_cars <- as.data.frame(t(eigen_bootstrap_cars))
+colnames(bootstrap_plot_results_cars) <- sapply(1:5, function(i) {paste("V", i, sep = "")})
+bootstrap_plot_results_cars <- melt(bootstrap_plot_results_cars[, 1:2])
+ggplot(bootstrap_plot_results_cars) + geom_histogram(aes(value), bins = 10) + 
+  facet_wrap(~variable, scales = "free_x")
+
+```
+
+## Part g
+
+Below is the PCA biplot of the cars data. Not surprisingly, acceleration and MPG are nearly orthoganal and weight is in the opposite direction as MPG.
+
+```{r q5_g}
+
+# PCA biplot
+biplot(pca_cor_results)
+
+```
+
+```{r show-code, ref.label=all_labels(), echo = TRUE, eval=FALSE}
+```
+
+```{r extra, eval = FALSE}
+
+##########################################
+# Extra Code
+##########################################
+
+# Plot the points using basic R
+plot(male_hw$height, male_hw$weight, type = "n", xlab = "Height", ylab = "Weight",
+     main = "test")
+ellipse(mu, sigma, alpha=0.1, npoints = 200, newplot = FALSE)
+text(male_hw$height, male_hw$weight, labels = row.names(male_hw))
+
+```
